@@ -3,10 +3,10 @@ import { ScreenProps, TransitionEvent } from "./types/types";
 import NavigationContext from "./NavigationContext";
 import invariant from "tiny-invariant";
 
-export default class Screen extends React.Component<ScreenProps> {
+export default class Screen<P extends ScreenProps = ScreenProps> extends React.PureComponent<P> {
   static contextType = NavigationContext;
 
-  constructor(props: ScreenProps) {
+  constructor(props: P) {
     super(props);
 
     invariant(

@@ -1,6 +1,9 @@
+import Screen from "../Screen";
+import Navigator from "../navigators/Navigator";
+
 export interface Address {
   path: string;
-  props: any;
+  props?: any;
 }
 
 export interface ScreenProps {
@@ -9,6 +12,18 @@ export interface ScreenProps {
   onAfterEnter?: (t: TransitionEvent) => void;
   onBeforeLeave?: (t: TransitionEvent) => void;
   onAfterLeave?: (t: TransitionEvent) => void;
+}
+
+export interface NavigatorProps extends ScreenProps {
+  mixins?: Mixin[];
+}
+
+export interface ContainerProps {
+  mixins?: Mixin[];
+}
+
+export interface NavigationContextValue {
+  navigation: NavigationProp;
 }
 
 export interface NavigationProp {
@@ -27,3 +42,6 @@ export interface Mixin {
   onBeforeLeave?: (t: TransitionEvent) => void;
   onAfterLeave?: (t: TransitionEvent) => void;
 }
+
+export type ScreenMap = { [key: string]: Screen };
+export type NavigatorMap = { [key: string]: Navigator };

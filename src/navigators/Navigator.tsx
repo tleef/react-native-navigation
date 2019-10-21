@@ -1,15 +1,40 @@
+import React from "react";
 import queryString from "query-string";
 import Screen from "../Screen";
-import { Address, TransitionEvent } from "../types/types";
+import {Address, NavigationContextValue, NavigatorProps, ScreenMap, TransitionEvent} from "../types/types";
+import NavigationContext from "../NavigationContext";
 
-type ScreenMap = { [key: string]: Screen };
-
-export default abstract class Navigator extends Screen {
+export default abstract class Navigator extends Screen<NavigatorProps> {
   protected readonly screens: ScreenMap = {};
+  protected readonly navigationContextValue: NavigationContextValue;
   protected latestAddress?: Address;
+
+  constructor(props: NavigatorProps) {
+    super(props);
+
+    const { navigation } = this.context;
+
+    let mixins = props.mixins || [];
+    mixins = mixins.concat(navigation.mixins);
+
+    this.navigationContextValue = {
+      navigation: {
+        navigator: this,
+        mixins
+      }
+    }
+  }
 
   get latestScreen() {
     return this.latestAddress && this.screens[this.latestAddress.path];
+  }
+
+  get latestPath() {
+    return this.latestAddress && this.latestAddress.path;
+  }
+
+  get latestProps() {
+    return this.latestAddress && this.latestAddress.props;
   }
 
   componentDidMount(): void {
@@ -38,6 +63,17 @@ export default abstract class Navigator extends Screen {
     }
   }
 
+  render() {
+    const {children} = this.props;
+
+    return (
+      <NavigationContext.Provider value={this.navigationContextValue}>
+        {children}
+      </NavigationContext.Provider>
+    )
+
+  }
+
   register(path: string, screen: Screen) {
     const { navigation } = this.context;
     // add child as path handler
@@ -59,7 +95,7 @@ export default abstract class Navigator extends Screen {
 
   async navigate(
     path: string,
-    props: any,
+    props?: any,
     parse = true,
     from = this.latestAddress
   ) {
