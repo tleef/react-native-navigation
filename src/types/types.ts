@@ -1,9 +1,24 @@
 import Screen from "../Screen";
-import Navigator from "../navigators/Navigator";
 
-export interface Address {
-  path: string;
-  props?: any;
+export interface IScreen {
+  onBeforeEnter: (t: TransitionEvent) => void;
+  enter: (t: TransitionEvent) => Promise<void>;
+  onAfterEnter: (t: TransitionEvent) => void;
+  onBeforeLeave: (t: TransitionEvent) => void;
+  leave: (t: TransitionEvent) => Promise<void>;
+  onAfterLeave: (t: TransitionEvent) => void;
+}
+
+export interface INavigator {
+  register: (entry: ScreenEntry) => void;
+  unregister: (path: string, screen: Screen) => void;
+  navigate: (
+    path: string,
+    props?: any,
+    parse?: boolean,
+    from?: Address
+  ) => Promise<void>;
+  goBack: () => Promise<void>;
 }
 
 export interface ScreenProps {
@@ -15,6 +30,8 @@ export interface ScreenProps {
 }
 
 export interface NavigatorProps extends ScreenProps {
+  initialPath: string;
+  initialProps?: any;
   mixins?: Mixin[];
 }
 
@@ -27,8 +44,13 @@ export interface NavigationContextValue {
 }
 
 export interface NavigationProp {
-  navigator: any;
+  navigator: INavigator;
   mixins: Mixin[];
+}
+
+export interface Address {
+  path: string;
+  props?: any;
 }
 
 export interface TransitionEvent {
@@ -43,5 +65,10 @@ export interface Mixin {
   onAfterLeave?: (t: TransitionEvent) => void;
 }
 
-export type ScreenMap = { [key: string]: Screen };
-export type NavigatorMap = { [key: string]: Navigator };
+export interface ScreenEntry {
+  screen: Screen;
+  path: string;
+  pathway: string[];
+}
+
+export type ScreenMap = { [key: string]: ScreenEntry };

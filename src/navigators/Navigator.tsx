@@ -1,18 +1,27 @@
 import React from "react";
 import queryString from "query-string";
 import Screen from "../Screen";
-import {Address, NavigationContextValue, NavigatorProps, ScreenMap, TransitionEvent} from "../types/types";
+import {
+  Address,
+  INavigator,
+  NavigationContextValue,
+  NavigatorProps,
+  ScreenEntry,
+  ScreenMap,
+  TransitionEvent
+} from "../types/types";
 import NavigationContext from "../NavigationContext";
+import invariant from "tiny-invariant";
 
-export default abstract class Navigator extends Screen<NavigatorProps> {
+export default abstract class Navigator extends Screen<NavigatorProps> implements INavigator {
   protected readonly screens: ScreenMap = {};
   protected readonly navigationContextValue: NavigationContextValue;
-  protected latestAddress?: Address;
+  public latestAddress?: Address;
 
   constructor(props: NavigatorProps) {
     super(props);
 
-    const { navigation } = this.context;
+    const { navigation }: NavigationContextValue = this.context;
 
     let mixins = props.mixins || [];
     mixins = mixins.concat(navigation.mixins);
@@ -22,45 +31,40 @@ export default abstract class Navigator extends Screen<NavigatorProps> {
         navigator: this,
         mixins
       }
-    }
+    };
   }
 
-  get latestScreen() {
+  get latestEntry() {
     return this.latestAddress && this.screens[this.latestAddress.path];
   }
 
-  get latestPath() {
-    return this.latestAddress && this.latestAddress.path;
-  }
-
-  get latestProps() {
-    return this.latestAddress && this.latestAddress.props;
-  }
-
   componentDidMount(): void {
+    const { navigation }: NavigationContextValue = this.context;
     // register self
     super.componentDidMount();
-
-    const { navigation } = this.context;
     // register children
     for (const path in this.screens) {
       if (this.screens.hasOwnProperty(path)) {
-        navigation.navigator.register(path, this);
+        const entry = this.screens[path];
+        navigation.navigator.register({
+          screen: entry.screen,
+          path: entry.path,
+          pathway: [this.props.path, ...entry.pathway]
+        });
       }
     }
   }
 
   componentWillUnmount(): void {
-    // unregister self
-    super.componentWillUnmount();
-
-    const { navigation } = this.context;
+    const { navigation }: NavigationContextValue = this.context;
     // unregister children
     for (const path in this.screens) {
       if (this.screens.hasOwnProperty(path)) {
-        navigation.navigator.unregister(path, this);
+        navigation.navigator.unregister(path, this.screens[path].screen);
       }
     }
+    // unregister self
+    super.componentWillUnmount();
   }
 
   render() {
@@ -71,25 +75,28 @@ export default abstract class Navigator extends Screen<NavigatorProps> {
         {children}
       </NavigationContext.Provider>
     )
-
   }
 
-  register(path: string, screen: Screen) {
-    const { navigation } = this.context;
+  register(entry: ScreenEntry) {
+    const { navigation }: NavigationContextValue = this.context;
     // add child as path handler
-    this.screens[path] = screen;
-    // add self as path handler on parent
-    navigation.navigator.register(path, this);
+    this.screens[entry.path] = entry;
+    // add self to pathway and register with parent
+    navigation.navigator.register({
+      screen: entry.screen,
+      path: entry.path,
+      pathway: [this.props.path, ...entry.pathway]
+    });
   }
 
   unregister(path: string, screen: Screen) {
-    const { navigation } = this.context;
+    const { navigation }: NavigationContextValue = this.context;
     // check if screen is current path handler
-    if (this.screens[path] === screen) {
+    if (this.screens[path] && this.screens[path].screen === screen) {
       // remove path
       delete this.screens[path];
       // remove path from parent
-      navigation.navigator.unregister(path, this);
+      navigation.navigator.unregister(path, screen);
     }
   }
 
@@ -98,8 +105,8 @@ export default abstract class Navigator extends Screen<NavigatorProps> {
     props?: any,
     parse = true,
     from = this.latestAddress
-  ) {
-    const { navigation } = this.context;
+  ): Promise<void> {
+    const { navigation }: NavigationContextValue = this.context;
 
     if (parse) {
       const parsed = queryString.parseUrl(path);
@@ -108,32 +115,46 @@ export default abstract class Navigator extends Screen<NavigatorProps> {
       props = Object.assign({}, parsed.query, props);
     }
 
-    let screen;
-
-    // look for child screen to handle path
-    for (const p in this.screens) {
-      if (this.screens.hasOwnProperty(p)) {
-        if (p === path) {
-          screen = this.screens[p];
-        }
-      }
+    if (path === this.props.path) {
+      path = this.props.initialPath;
+      props = Object.assign({}, this.props.initialProps, props)
     }
 
-    // if no screen found, ask parent to handle path
-    if (!screen) {
+    // if path is not registered, ask parent to handle path
+    if (!this.screens[path]) {
       return navigation.navigator.navigate(path, props, false, from);
     }
 
-    return this.transition({
+    let transition = {
       from,
       to: {
         path,
         props
       }
-    });
+    };
+
+    let toEntry = this._getToEntry(transition);
+    let fromEntry = this._getFromEntry(transition);
+
+    // this navigator is not the nearest common ancestor
+    if (fromEntry === toEntry) {
+      let navigatorEntry = this.screens[fromEntry.pathway[0]];
+      invariant(
+        navigatorEntry && navigatorEntry.screen instanceof Navigator,
+        `<Navigator> missing from pathway ${fromEntry.pathway[0]}`
+      );
+      return (navigatorEntry.screen as Navigator).navigate(path, props, false, from);
+    }
+
+    return this.transition(transition);
   }
 
-  async goBack() {
+  async goBack(): Promise<void> {
+    const latestEntry = this.latestEntry;
+    if (latestEntry && latestEntry.screen instanceof Navigator) {
+      return latestEntry.screen.goBack();
+    }
+
     const prevAddress = this._getPreviousAddress();
     if (prevAddress) {
       return this.navigate(prevAddress.path, prevAddress.props, false);
@@ -141,52 +162,180 @@ export default abstract class Navigator extends Screen<NavigatorProps> {
   }
 
   async transition(transition: TransitionEvent) {
-    let latestScreen = this.latestScreen;
-    const screen = this.screens[transition.to.path];
+    let fromEntry = this._getFromEntry(transition);
+    let toEntry = this._getToEntry(transition);
 
-    if (latestScreen === screen) {
-      return;
+    invariant(
+      fromEntry !== toEntry,
+      `<Navigator> is not nearest common ancestor of ${(transition.from || {}).path} and ${transition.to.path}`
+    );
+
+    if (fromEntry) {
+      try {
+        fromEntry.screen.onBeforeLeave(transition);
+      } catch (e) {
+        // do nothing;
+      }
+      try {
+        await fromEntry.screen.leave(transition);
+      } catch (e) {
+        // do nothing;
+      }
+      try {
+        fromEntry.screen.onAfterLeave(transition);
+      } catch (e) {
+        // do nothing;
+      }
     }
 
-    if (latestScreen) {
-      try {
-        latestScreen.onBeforeLeave(transition);
-      } catch (e) {
-        // do nothing;
-      }
-      try {
-        await latestScreen.leave(transition);
-      } catch (e) {
-        // do nothing;
-      }
-      try {
-        latestScreen.onAfterLeave(transition);
-      } catch (e) {
-        // do nothing;
-      }
-    }
-
-    this.update(transition.to);
+    this.update(transition);
 
     try {
-      screen.onBeforeEnter(transition);
+      toEntry.screen.onBeforeEnter(transition);
     } catch (e) {
       // do nothing;
     }
     try {
-      await screen.enter(transition);
+      await toEntry.screen.enter(transition);
     } catch (e) {
       // do nothing;
     }
     try {
-      screen.onAfterEnter(transition);
+      toEntry.screen.onAfterEnter(transition);
     } catch (e) {
       // do nothing;
     }
   }
 
-  update(address: Address) {
-    this.latestAddress = address;
+  onBeforeLeave(transition: TransitionEvent) {
+    // First, tell child to leave
+    const fromEntry = this._getFromEntry(transition);
+    if (fromEntry) {
+      try {
+        fromEntry.screen.onBeforeLeave(transition);
+      } catch (e) {
+        // do nothing
+      }
+    }
+    // Then, leave
+    super.onBeforeLeave(transition);
+  }
+
+  async leave(transition: TransitionEvent) {
+    // First, tell child to leave
+    const fromEntry = this._getFromEntry(transition);
+    if (fromEntry) {
+      try {
+        await fromEntry.screen.leave(transition);
+      } catch (e) {
+        // do nothing;
+      }
+    }
+    // Then, leave
+    await super.leave(transition);
+  }
+
+  onAfterLeave(transition: TransitionEvent) {
+    // First, tell child to leave
+    const fromEntry = this._getFromEntry(transition);
+    if (fromEntry) {
+      try {
+        fromEntry.screen.onAfterLeave(transition);
+      } catch (e) {
+        // do nothing;
+      }
+    }
+    // Then, leave
+    super.onAfterLeave(transition);
+  }
+
+  update(transition: TransitionEvent) {
+    const entry = this._getToEntry(transition);
+
+    this.latestAddress = {
+      path: entry.path,
+      props: entry.path === transition.to.path ? transition.to.props : undefined
+    };
+
+    if (entry.screen instanceof Navigator) {
+      entry.screen.update(transition);
+    }
+  }
+
+  onBeforeEnter(transition: TransitionEvent) {
+    // First, enter
+    super.onBeforeEnter(transition);
+    // Then, tell child to enter
+    const toEntry = this._getToEntry(transition);
+    try {
+      toEntry.screen.onBeforeEnter(transition);
+    } catch (e) {
+      // do nothing
+    }
+  }
+
+  async enter(transition: TransitionEvent) {
+    // First, enter
+    await super.enter(transition);
+    // Then, tell child to enter
+    const toEntry = this._getToEntry(transition);
+    try {
+      await toEntry.screen.enter(transition);
+    } catch (e) {
+      // do nothing
+    }
+  }
+
+  onAfterEnter(transition: TransitionEvent) {
+    // First, enter
+    super.onAfterEnter(transition);
+    // Then, tell child to enter
+    const toEntry = this._getToEntry(transition);
+    try {
+      toEntry.screen.onAfterEnter(transition);
+    } catch (e) {
+      // do nothing
+    }
+  }
+
+  private _getFromEntry(transition: TransitionEvent) {
+    let fromEntry: ScreenEntry | undefined;
+    if (transition.from) {
+      fromEntry = this.screens[transition.from.path];
+      invariant(
+        fromEntry,
+        `<Navigator> does not contain ${transition.from.path}`
+      );
+      if (fromEntry.pathway.length) {
+        fromEntry = this.screens[fromEntry.pathway[0]];
+        invariant(
+          fromEntry && fromEntry.screen instanceof Navigator,
+          `<Navigator> missing from pathway ${fromEntry.pathway[0]}`
+        );
+      }
+      const latestEntry = this.latestEntry;
+      invariant(
+        latestEntry === fromEntry,
+        `<Navigator> out of sync`
+      );
+    }
+    return fromEntry;
+  }
+
+  private _getToEntry(transition: TransitionEvent) {
+    let toEntry = this.screens[transition.to.path];
+    invariant(
+      toEntry,
+      `<Navigator> does not contain ${transition.to.path}`
+    );
+    if (toEntry.pathway.length) {
+      toEntry = this.screens[toEntry.pathway[0]];
+      invariant(
+        toEntry && toEntry.screen instanceof Navigator,
+        `<Navigator> missing from pathway ${toEntry.pathway[0]}`
+      );
+    }
+    return toEntry
   }
 
   abstract _getPreviousAddress(): Address | undefined;

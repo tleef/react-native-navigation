@@ -1,12 +1,13 @@
 import React from "react";
 import NavigationContext from "./NavigationContext";
-import {Address, ContainerProps, NavigationContextValue, NavigatorMap} from "./types/types";
+import {Address, ContainerProps, INavigator, NavigationContextValue, ScreenEntry} from "./types/types";
 import Navigator from "./navigators/Navigator";
+import Screen from "./Screen";
+import invariant from "tiny-invariant";
 
-export default class NavigationContainer extends React.PureComponent<ContainerProps> {
+export default class NavigationContainer extends React.PureComponent<ContainerProps> implements INavigator {
   protected readonly navigationContextValue: NavigationContextValue;
-  protected readonly navigators: NavigatorMap = {};
-  protected currentNavigator?: Navigator;
+  protected navigator?: Navigator;
 
   constructor(props: ContainerProps) {
     super(props);
@@ -21,30 +22,22 @@ export default class NavigationContainer extends React.PureComponent<ContainerPr
     }
   }
 
-  get latestNavigator(): Navigator | undefined {
-    if (!this.currentNavigator) {
-      return;
-    }
-
-    let navigator = this.currentNavigator;
-    while (navigator.latestScreen instanceof Navigator) {
-      navigator = navigator.latestScreen;
-    }
-
-    return navigator;
-  }
-
   get latestAddress(): Address | undefined {
-    let navigator = this.latestNavigator;
-
-    if (!navigator || !navigator.latestPath) {
+    if (!this.navigator || !this.navigator.latestEntry) {
       return;
     }
 
-    return {
-      path: navigator.latestPath,
-      props: navigator.latestProps,
+    let navigator = this.navigator;
+    while (navigator.latestEntry && navigator.latestEntry.screen instanceof Navigator) {
+      navigator = navigator.latestEntry.screen
     }
+
+    invariant(
+      navigator.latestAddress,
+      `Active <Navigator> should have latest address`
+    );
+
+    return navigator.latestAddress
   }
 
   render() {
@@ -58,49 +51,52 @@ export default class NavigationContainer extends React.PureComponent<ContainerPr
 
   }
 
-  register(path: string, navigator: Navigator) {
-    // add child as path handler
-    this.navigators[path] = navigator;
+  register(entry: ScreenEntry) {
+    if (!entry.pathway.length) {
+      invariant(
+        entry.screen instanceof Navigator,
+        `<NavigationContainer> entry must be a <Navigator>`
+      );
+      invariant(
+        !this.navigator,
+        `Only one <Navigator> can be registered with <NavigationContainer>`
+      );
+      // add child as path handler
+      this.navigator = (entry.screen as Navigator);
+    }
   }
 
-  unregister(path: string, navigator: Navigator) {
-    // check if screen is current path handler
-    if (this.navigators[path] === navigator) {
-      // remove path
-      delete this.navigators[path];
+  unregister(path: string, screen: Screen) {
+    // check if screen is current navigator
+    if (this.navigator === screen) {
+      // remove navigator
+      this.navigator = undefined;
     }
   }
 
   async navigate(
     path: string,
     props?: any,
-    parse = true,
-    from = this.latestAddress,
+    parse?: boolean,
+    from?: Address,
   ) {
-    let navigator;
-
-    // look for child navigator to handle path
-    for (const p in this.navigators) {
-      if (this.navigators.hasOwnProperty(p)) {
-        if (p === path) {
-          navigator = this.navigators[p];
-        }
-      }
-    }
-
-    // if no navigator found, error?
-    if (!navigator) {
-      return;
-    }
-
-    this.currentNavigator = navigator;
-    return navigator.navigate(path, props, parse, from);
+    throw new Error("Can't call `navigate()` on <NavigationContainer>")
   }
 
   async goBack() {
-    let navigator = this.latestNavigator;
-    if (navigator) {
-      return navigator.goBack();
+    if (this.navigator) {
+      return this.navigator.goBack();
+    }
+  }
+
+  private async _navigate(
+    path: string,
+    props?: any,
+    parse = true,
+    from = this.latestAddress,
+  ) {
+    if (this.navigator) {
+      return this.navigator.navigate(path, props, parse, from);
     }
   }
 }
