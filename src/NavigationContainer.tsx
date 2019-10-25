@@ -1,6 +1,6 @@
 import React from "react";
 import NavigationContext from "./NavigationContext";
-import {Address, ContainerProps, INavigator, NavigationContextValue, ScreenEntry} from "./types/types";
+import {Address, ContainerProps, INavigator, NavigationContextValue, ScreenEntry} from "./types";
 import Navigator from "./navigators/Navigator";
 import Screen from "./Screen";
 import invariant from "tiny-invariant";
@@ -19,6 +19,15 @@ export default class NavigationContainer extends React.PureComponent<ContainerPr
         navigator: this,
         mixins
       }
+    }
+  }
+
+  componentDidMount() {
+    if (this.navigator) {
+      // navigate to entry screen
+      this.navigator.navigate(
+        this.navigator.props.path
+      );
     }
   }
 

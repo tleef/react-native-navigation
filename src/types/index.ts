@@ -66,7 +66,7 @@ export interface Mixin {
 }
 
 export interface ScreenEntry {
-  screen: Screen;
+  screen: Screen<any, any, any>;
   path: string;
   pathway: string[];
 }

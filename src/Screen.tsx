@@ -1,10 +1,12 @@
 import React from "react";
-import {IScreen, ScreenProps, TransitionEvent} from "./types/types";
+import {IScreen, ScreenProps, TransitionEvent} from "./types";
 import NavigationContext from "./NavigationContext";
 import invariant from "tiny-invariant";
 
-export default class Screen<P extends ScreenProps = ScreenProps> extends React.PureComponent<P> implements IScreen {
+export default class Screen<P extends ScreenProps = ScreenProps, S = {}, SS = any> extends React.PureComponent<P, S, SS> implements IScreen {
   static contextType = NavigationContext;
+
+  protected navigationProps: any;
 
   constructor(props: P) {
     super(props);
@@ -36,8 +38,12 @@ export default class Screen<P extends ScreenProps = ScreenProps> extends React.P
   }
 
   onBeforeEnter(transition: TransitionEvent) {
-    const { onBeforeEnter } = this.props;
+    const { path, onBeforeEnter } = this.props;
     const { navigation } = this.context;
+
+    if (transition.to.path === path) {
+      this.navigationProps = transition.to.props;
+    }
 
     if (onBeforeEnter) {
       try {

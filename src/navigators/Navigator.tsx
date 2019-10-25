@@ -9,16 +9,16 @@ import {
   ScreenEntry,
   ScreenMap,
   TransitionEvent
-} from "../types/types";
+} from "../types";
 import NavigationContext from "../NavigationContext";
 import invariant from "tiny-invariant";
 
-export default abstract class Navigator extends Screen<NavigatorProps> implements INavigator {
+export default abstract class Navigator<P extends NavigatorProps = NavigatorProps, S = {}, SS = any> extends Screen<P, S, SS> implements INavigator {
   protected readonly screens: ScreenMap = {};
   protected readonly navigationContextValue: NavigationContextValue;
   public latestAddress?: Address;
 
-  constructor(props: NavigatorProps) {
+  constructor(props: P) {
     super(props);
 
     const { navigation }: NavigationContextValue = this.context;
@@ -68,13 +68,15 @@ export default abstract class Navigator extends Screen<NavigatorProps> implement
   }
 
   render() {
-    const {children} = this.props;
-
     return (
       <NavigationContext.Provider value={this.navigationContextValue}>
-        {children}
+        {this.renderChildren()}
       </NavigationContext.Provider>
     )
+  }
+
+  renderChildren() {
+    return this.props.children;
   }
 
   register(entry: ScreenEntry) {
