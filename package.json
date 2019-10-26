@@ -1,6 +1,6 @@
 {
   "name": "@tleef/react-native-navigation",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc",
@@ -21,6 +21,7 @@
     "typescript": "^3.6.4"
   },
   "dependencies": {
+    "debug": "^4.1.1",
     "hoist-non-react-statics": "^3.3.0",
     "query-string": "^6.8.3",
     "tiny-invariant": "^1.0.6"
