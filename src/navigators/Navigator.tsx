@@ -18,8 +18,8 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
   protected readonly navigationContextValue: NavigationContextValue;
   public latestAddress?: Address;
 
-  constructor(props: P) {
-    super(props);
+  constructor(props: P, context: NavigationContextValue) {
+    super(props, context);
 
     const { navigation }: NavigationContextValue = this.context;
 

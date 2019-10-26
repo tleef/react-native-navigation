@@ -9,8 +9,8 @@ export default class NavigationContainer extends React.PureComponent<ContainerPr
   protected readonly navigationContextValue: NavigationContextValue;
   protected navigator?: Navigator;
 
-  constructor(props: ContainerProps) {
-    super(props);
+  constructor(props: ContainerProps, context: NavigationContextValue) {
+    super(props, context);
 
     let mixins = props.mixins || [];
 

@@ -1,5 +1,5 @@
 import React from "react";
-import {IScreen, ScreenProps, TransitionEvent} from "./types";
+import {IScreen, NavigationContextValue, ScreenProps, TransitionEvent} from "./types";
 import NavigationContext from "./NavigationContext";
 import invariant from "tiny-invariant";
 
@@ -8,8 +8,8 @@ export default class Screen<P extends ScreenProps = ScreenProps, S = {}, SS = an
 
   protected navigationProps: any;
 
-  constructor(props: P) {
-    super(props);
+  constructor(props: P, context: NavigationContextValue) {
+    super(props, context);
 
     invariant(
       this.context && this.context.navigation,
