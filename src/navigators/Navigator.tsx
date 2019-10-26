@@ -38,6 +38,14 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
     return this.latestAddress && this.screens[this.latestAddress.path];
   }
 
+  get latestPath() {
+    if (this.latestAddress) {
+      return this.latestAddress.path;
+    }
+
+    return this.props.initialPath;
+  }
+
   componentDidMount(): void {
     const { navigation }: NavigationContextValue = this.context;
     // register self
@@ -80,6 +88,8 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
   }
 
   register(entry: ScreenEntry) {
+    console.log(`${this.props.path} registering ${entry.path}`, JSON.stringify(entry.pathway));
+
     const { navigation }: NavigationContextValue = this.context;
     // add child as path handler
     this.screens[entry.path] = entry;
@@ -118,13 +128,23 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
     }
 
     if (path === this.props.path) {
-      path = this.props.initialPath;
-      props = Object.assign({}, this.props.initialProps, props)
+      path = this.latestPath;
     }
 
     // if path is not registered, ask parent to handle path
     if (!this.screens[path]) {
       return navigation.navigator.navigate(path, props, false, from);
+    }
+
+    // resolve screen
+    let entry = this.screens[path];
+    while (entry.screen instanceof Navigator) {
+      path = (entry.screen as Navigator).latestPath;
+      entry = this.screens[path];
+      invariant(
+        entry,
+        `${this.props.path} does not contain ${path}`
+      );
     }
 
     let transition = {
@@ -140,10 +160,10 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
 
     // this navigator is not the nearest common ancestor
     if (fromEntry === toEntry) {
-      let navigatorEntry = this.screens[fromEntry.pathway[0]];
+      let navigatorEntry = this.screens[toEntry.pathway[0]];
       invariant(
         navigatorEntry && navigatorEntry.screen instanceof Navigator,
-        `<Navigator> missing from pathway ${fromEntry.pathway[0]}`
+        `${toEntry.pathway[0]} missing from ${this.props.path} pathway to ${transition.to.path}`
       );
       return (navigatorEntry.screen as Navigator).navigate(path, props, false, from);
     }
@@ -164,12 +184,14 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
   }
 
   async transition(transition: TransitionEvent) {
+    console.log(`${this.props.path} transitioning from ${(transition.from || {}).path} to ${transition.to.path}`);
+
     let fromEntry = this._getFromEntry(transition);
     let toEntry = this._getToEntry(transition);
 
     invariant(
       fromEntry !== toEntry,
-      `<Navigator> is not nearest common ancestor of ${(transition.from || {}).path} and ${transition.to.path}`
+      `${this.props.path} is not nearest common ancestor of ${(transition.from || {}).path} and ${transition.to.path}`
     );
 
     if (fromEntry) {
@@ -306,19 +328,19 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
       fromEntry = this.screens[transition.from.path];
       invariant(
         fromEntry,
-        `<Navigator> does not contain ${transition.from.path}`
+        `${this.props.path} does not contain ${transition.from.path}`
       );
       if (fromEntry.pathway.length) {
         fromEntry = this.screens[fromEntry.pathway[0]];
         invariant(
           fromEntry && fromEntry.screen instanceof Navigator,
-          `<Navigator> missing from pathway ${fromEntry.pathway[0]}`
+          `${fromEntry.pathway[0]} missing from ${this.props.path} pathway to ${transition.from.path}`
         );
       }
       const latestEntry = this.latestEntry;
       invariant(
         latestEntry === fromEntry,
-        `<Navigator> out of sync`
+        `${this.props.path} out of sync`
       );
     }
     return fromEntry;
@@ -328,13 +350,13 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
     let toEntry = this.screens[transition.to.path];
     invariant(
       toEntry,
-      `<Navigator> does not contain ${transition.to.path}`
+      `${this.props.path} does not contain ${transition.to.path}`
     );
     if (toEntry.pathway.length) {
       toEntry = this.screens[toEntry.pathway[0]];
       invariant(
         toEntry && toEntry.screen instanceof Navigator,
-        `<Navigator> missing from pathway ${toEntry.pathway[0]}`
+        `${toEntry.pathway[0]} missing from ${this.props.path} pathway to ${transition.to.path}`
       );
     }
     return toEntry

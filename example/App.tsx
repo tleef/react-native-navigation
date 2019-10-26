@@ -1,19 +1,16 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+
+import {NavigationContainer} from "../src"
+import AuthSwitchNav from "./navigators/AuthSwitchNav";
+import Paths from "./constants/Paths";
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-    </View>
+    <NavigationContainer>
+      <AuthSwitchNav
+        path={Paths.AuthSwitch}
+        initialPath={Paths.Auth}
+      />
+    </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

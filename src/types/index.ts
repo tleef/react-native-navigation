@@ -31,7 +31,6 @@ export interface ScreenProps {
 
 export interface NavigatorProps extends ScreenProps {
   initialPath: string;
-  initialProps?: any;
   mixins?: Mixin[];
 }
 

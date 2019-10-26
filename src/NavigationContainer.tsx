@@ -43,7 +43,7 @@ export default class NavigationContainer extends React.PureComponent<ContainerPr
 
     invariant(
       navigator.latestAddress,
-      `Active <Navigator> should have latest address`
+      `${navigator.props.path} should have latest address`
     );
 
     return navigator.latestAddress
