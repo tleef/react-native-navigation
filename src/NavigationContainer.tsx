@@ -4,6 +4,7 @@ import {Address, ContainerProps, INavigator, NavigationContextValue, ScreenEntry
 import Navigator from "./navigators/Navigator";
 import Screen from "./Screen";
 import invariant from "tiny-invariant";
+import debug from "debug";
 
 export default class NavigationContainer extends React.PureComponent<ContainerProps> implements INavigator {
   protected readonly navigationContextValue: NavigationContextValue;
@@ -11,6 +12,10 @@ export default class NavigationContainer extends React.PureComponent<ContainerPr
 
   constructor(props: ContainerProps, context: NavigationContextValue) {
     super(props, context);
+
+    if (debug) {
+      debug.enable("navigation:*");
+    }
 
     let mixins = props.mixins || [];
 
@@ -31,14 +36,15 @@ export default class NavigationContainer extends React.PureComponent<ContainerPr
     }
   }
 
-  get latestAddress(): Address | undefined {
-    if (!this.navigator || !this.navigator.latestEntry) {
+  getLatestAddress(): Address | undefined {
+    if (!this.navigator || !this.navigator.getLatestEntry()) {
       return;
     }
 
     let navigator = this.navigator;
-    while (navigator.latestEntry && navigator.latestEntry.screen instanceof Navigator) {
-      navigator = navigator.latestEntry.screen
+    let latestEntry = navigator.getLatestEntry();
+    while (latestEntry && latestEntry.screen instanceof Navigator) {
+      navigator = (latestEntry.screen as Navigator)
     }
 
     invariant(
@@ -102,7 +108,7 @@ export default class NavigationContainer extends React.PureComponent<ContainerPr
     path: string,
     props?: any,
     parse = true,
-    from = this.latestAddress,
+    from = this.getLatestAddress(),
   ) {
     if (this.navigator) {
       return this.navigator.navigate(path, props, parse, from);

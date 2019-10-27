@@ -14,7 +14,7 @@ import {
 import NavigationContext from "../NavigationContext";
 import invariant from "tiny-invariant";
 
-const log = debug("navigation");
+const info = debug("navigation:info");
 
 export default abstract class Navigator<P extends NavigatorProps = NavigatorProps, S = {}, SS = any> extends Screen<P, S, SS> implements INavigator {
   protected readonly screens: ScreenMap = {};
@@ -37,11 +37,11 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
     };
   }
 
-  get latestEntry() {
+  getLatestEntry() {
     return this.latestAddress && this.screens[this.latestAddress.path];
   }
 
-  get latestPath() {
+  getLatestPath() {
     if (this.latestAddress) {
       return this.latestAddress.path;
     }
@@ -91,7 +91,7 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
   }
 
   register(entry: ScreenEntry) {
-    log(`${this.props.path} registering ${entry.path}`, JSON.stringify(entry.pathway));
+    info(`${this.props.path} registering ${entry.path}`, JSON.stringify(entry.pathway));
 
     const { navigation }: NavigationContextValue = this.context;
     // add child as path handler
@@ -131,7 +131,7 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
     }
 
     if (path === this.props.path) {
-      path = this.latestPath;
+      path = this.getLatestPath();
     }
 
     // if path is not registered, ask parent to handle path
@@ -142,7 +142,7 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
     // resolve screen
     let entry = this.screens[path];
     while (entry.screen instanceof Navigator) {
-      path = (entry.screen as Navigator).latestPath;
+      path = (entry.screen as Navigator).getLatestPath();
       entry = this.screens[path];
       invariant(
         entry,
@@ -175,7 +175,7 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
   }
 
   async goBack(): Promise<void> {
-    const latestEntry = this.latestEntry;
+    const latestEntry = this.getLatestEntry();
     if (latestEntry && latestEntry.screen instanceof Navigator) {
       return latestEntry.screen.goBack();
     }
@@ -187,7 +187,7 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
   }
 
   async transition(transition: TransitionEvent) {
-    log(`${this.props.path} transitioning from ${(transition.from || {}).path} to ${transition.to.path}`);
+    info(`${this.props.path} transitioning from ${(transition.from || {}).path} to ${transition.to.path}`);
 
     let fromEntry = this._getFromEntry(transition);
     let toEntry = this._getToEntry(transition);
@@ -340,7 +340,7 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
           `${fromEntry.pathway[0]} missing from ${this.props.path} pathway to ${transition.from.path}`
         );
       }
-      const latestEntry = this.latestEntry;
+      const latestEntry = this.getLatestEntry();
       invariant(
         latestEntry === fromEntry,
         `${this.props.path} out of sync`

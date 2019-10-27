@@ -35,6 +35,7 @@ export interface NavigatorProps extends ScreenProps {
 }
 
 export interface ContainerProps {
+  debug: boolean;
   mixins?: Mixin[];
 }
 
