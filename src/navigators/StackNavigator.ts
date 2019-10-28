@@ -7,17 +7,20 @@ export default class StackNavigator<
   SS = any
 > extends Navigator<P, S, SS> {
   private readonly prevAddresses: Address[] = [];
+  private goingBack: boolean = false;
 
   update(transition: TransitionEvent) {
-    if (this.latestAddress) {
+    if (this.latestAddress && !this.goingBack) {
       this.prevAddresses.push(this.latestAddress);
     }
 
+    this.goingBack = false;
     super.update(transition);
   }
 
   _getPreviousAddress(): Address | undefined {
     if (this.prevAddresses.length) {
+      this.goingBack = true;
       return this.prevAddresses.pop();
     }
   }
