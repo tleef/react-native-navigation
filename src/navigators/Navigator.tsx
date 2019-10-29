@@ -49,6 +49,19 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
     return this.props.initialPath;
   }
 
+  getActiveAddress(): Address | undefined {
+    let latestEntry = this.getLatestEntry();
+    if (!latestEntry) {
+      return;
+    }
+
+    if (latestEntry.screen instanceof Navigator) {
+      return latestEntry.screen.getActiveAddress();
+    }
+
+    return this.latestAddress
+  }
+
   componentDidMount(): void {
     const { navigation }: NavigationContextValue = this.context;
     // register self
@@ -119,7 +132,7 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
     path: string,
     props?: any,
     parse = true,
-    from = this.latestAddress
+    from = this.getActiveAddress()
   ): Promise<void> {
     const { navigation }: NavigationContextValue = this.context;
 
@@ -174,10 +187,12 @@ export default abstract class Navigator<P extends NavigatorProps = NavigatorProp
     return this.transition(transition);
   }
 
-  async goBack(): Promise<void> {
-    const latestEntry = this.getLatestEntry();
-    if (latestEntry && latestEntry.screen instanceof Navigator) {
-      return latestEntry.screen.goBack();
+  async goBack(propagate = false): Promise<void> {
+    if (propagate) {
+      const latestEntry = this.getLatestEntry();
+      if (latestEntry && latestEntry.screen instanceof Navigator) {
+        return latestEntry.screen.goBack();
+      }
     }
 
     const prevAddress = this._getPreviousAddress();

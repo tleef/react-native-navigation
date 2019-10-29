@@ -36,23 +36,8 @@ export default class NavigationContainer extends React.PureComponent<ContainerPr
     }
   }
 
-  getLatestAddress(): Address | undefined {
-    if (!this.navigator || !this.navigator.getLatestEntry()) {
-      return;
-    }
-
-    let navigator = this.navigator;
-    let latestEntry = navigator.getLatestEntry();
-    while (latestEntry && latestEntry.screen instanceof Navigator) {
-      navigator = (latestEntry.screen as Navigator)
-    }
-
-    invariant(
-      navigator.latestAddress,
-      `${navigator.props.path} should have latest address`
-    );
-
-    return navigator.latestAddress
+  getActiveAddress(): Address | undefined {
+    return this.navigator && this.navigator.getActiveAddress();
   }
 
   render() {
@@ -100,7 +85,7 @@ export default class NavigationContainer extends React.PureComponent<ContainerPr
 
   async goBack() {
     if (this.navigator) {
-      return this.navigator.goBack();
+      return this.navigator.goBack(true);
     }
   }
 
@@ -108,7 +93,7 @@ export default class NavigationContainer extends React.PureComponent<ContainerPr
     path: string,
     props?: any,
     parse = true,
-    from = this.getLatestAddress(),
+    from = this.getActiveAddress(),
   ) {
     if (this.navigator) {
       return this.navigator.navigate(path, props, parse, from);
